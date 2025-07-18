@@ -1,0 +1,64 @@
+{
+	"name": "n8n-nodes-image-tool",
+	"version": "0.1.0",
+	"description": "Use image-related tools, including image analysis and color correction",
+	"keywords": [
+		"n8n-community-node-package"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/coco-ai-team/n8n-nodes-image-tool",
+	"author": {
+		"name": "Coco AI Team",
+		"url": "https://github.com/coco-ai-team"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/coco-ai-team/n8n-nodes-image-tool.git"
+	},
+	"engines": {
+		"node": ">=20.15"
+	},
+	"main": "index.js",
+	"scripts": {
+		"build": "npx rimraf dist && tsc && gulp build:icons",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/AzureOpenAIApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/ImageTool/ImageTool.node.js"
+		]
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.14",
+		"@typescript-eslint/parser": "~8.32.0",
+		"eslint": "^8.57.0",
+		"eslint-plugin-n8n-nodes-base": "^1.16.3",
+		"gulp": "^5.0.0",
+		"prettier": "^3.5.3",
+		"rimraf": "^6.0.1",
+		"typescript": "^5.8.2"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.848.0",
+		"axios": "^1.10.0",
+		"file-type": "^16.0.0",
+		"jimp": "^1.6.0",
+		"uuid": "^11.1.0",
+		"@langchain/core": "^0.3.62",
+		"@langchain/openai": "^0.5.18"
+	}
+}
