@@ -2,19 +2,19 @@ import axios from 'axios';
 import { Jimp } from 'jimp'
 import { fromBuffer } from 'file-type';
 
+export interface RGB {
+	red: number,
+	green: number,
+	blue: number
+}
+
 export interface ColorBalance {
-	shadows: { red: number, green: number, blue: number },
-	midtones: { red: number, green: number, blue: number },
-	highlights: { red: number, green: number, blue: number }
+	shadows: RGB,
+	midtones: RGB,
+	highlights: RGB
 }
 
-const DEFAULT_COLOR_BALANCE: ColorBalance = {
-	shadows: { red: -5, green: 0, blue: 10 },
-	midtones: { red: -6, green: 0, blue: 20 },
-	highlights: { red: -6, green: 0, blue: 15 }
-}
-
-export default async function correctColor(url: string, colorBalance: ColorBalance = DEFAULT_COLOR_BALANCE) {
+export default async function correctColor(url: string, colorBalance: ColorBalance) {
 	const response = await axios.get(url, { responseType: 'arraybuffer' });
 	return adjustColor(Buffer.from(response.data), colorBalance)
 }

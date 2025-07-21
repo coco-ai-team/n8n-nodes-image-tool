@@ -5,7 +5,7 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import correctColor from './correctColor';
+import correctColor, { type RGB } from './correctColor';
 import analyzeImage, { AzureChatOpenAIConfig } from './analyzeImage';
 
 export class ImageTool implements INodeType {
@@ -99,6 +99,167 @@ export class ImageTool implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Shadows',
+				name: 'shadows',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: false,
+				},
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection'],
+					},
+				},
+				default: {},
+				placeholder: 'Edit Shadows',
+				options: [
+					{
+						displayName: 'Shadows',
+						name: 'shadows',
+						values: [
+							{
+								displayName: 'Cyan-Red',
+								name: 'red',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: -5,
+							},
+							{
+								displayName: 'Magenta-Green',
+								name: 'green',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 0,
+							},
+							{
+								displayName: 'Yellow-Blue',
+								name: 'blue',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 10,
+							},
+						],
+					}
+				]
+			},
+			{
+				displayName: 'Midtones',
+				name: 'midtones',
+				type: 'fixedCollection',
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection'],
+					},
+				},
+				default: {},
+				required: true,
+				typeOptions: {
+					multipleValues: false,
+				},
+				placeholder: 'Edit Midtones',
+				options: [
+					{
+						displayName: 'Midtones',
+						name: 'midtones',
+						values: [
+							{
+								displayName: 'Cyan-Red',
+								name: 'red',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: -5,
+							},
+							{
+								displayName: 'Magenta-Green',
+								name: 'green',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 0,
+							},
+							{
+								displayName: 'Yellow-Blue',
+								name: 'blue',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 10,
+							},
+						],
+					}
+				]
+			},
+			{
+				displayName: 'Highlights',
+				name: 'highlights',
+				type: 'fixedCollection',
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection'],
+					},
+				},
+				default: {},
+				required: true,
+				typeOptions: {
+					multipleValues: false,
+				},
+				placeholder: 'Edit Highlights',
+				options: [
+					{
+						displayName: 'Highlights',
+						name: 'highlights',
+						values: [
+							{
+								displayName: 'Cyan-Red',
+								name: 'red',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: -5,
+							},
+							{
+								displayName: 'Magenta-Green',
+								name: 'green',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 0,
+							},
+							{
+								displayName: 'Yellow-Blue',
+								name: 'blue',
+								type: 'number',
+								typeOptions: {
+									minValue: -20,
+									maxValue: 20,
+								},
+								default: 10,
+							},
+						],
+					}
+				]
+			},
 		],
 		inputs: [NodeConnectionType.Main],
 		outputs: [{ type: NodeConnectionType.Main }]
@@ -122,7 +283,10 @@ export class ImageTool implements INodeType {
 					break;
 				case 'colorCorrection':
 					const url = this.getNodeParameter('url', 0) as string
-					const image = await correctColor(url)
+					let { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
+					let { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
+					let { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
+					const image = await correctColor(url, { shadows, midtones, highlights })
 					const data = await this.helpers.prepareBinaryData(image)
 					returnItems.push({
 						json: {},
