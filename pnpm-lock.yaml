@@ -17,6 +17,9 @@ importers:
       '@langchain/openai':
         specifier: ^0.5.18
         version: 0.5.18(@langchain/core@0.3.65(openai@5.10.1(zod@3.25.76)))
+      ai-color-correction:
+        specifier: ^2.0.0
+        version: 2.0.0
       axios:
         specifier: ^1.10.0
         version: 1.10.0
@@ -713,6 +716,9 @@ packages:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  ai-color-correction@2.0.0:
+    resolution: {integrity: sha512-A/6TlJhqpqAkMvBDw4GApgYp5DfCT8Klr7gL3y+qjVdMhqKkTaMFsTCSYNmlzCw8O9p+omV/r0zxUo4X9afoeA==}
 
   ajv@6.12.6:
     resolution: {integrity: sha512-j3fVLgvTo527anyYyJOGTYJbG+vnnQYvE0m5mmkc1TK+nxAppkCLMIL0aZ4dblVCNoGShhm+kzE4ZUykBoMg4g==}
@@ -3496,6 +3502,10 @@ snapshots:
       acorn: 8.15.0
 
   acorn@8.15.0: {}
+
+  ai-color-correction@2.0.0:
+    dependencies:
+      jimp: 1.6.0
 
   ajv@6.12.6:
     dependencies:

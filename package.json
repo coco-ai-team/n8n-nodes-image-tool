@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-image-tool",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Use image-related tools, including image analysis and color correction",
 	"keywords": [
 		"n8n-community-node-package"
@@ -54,11 +54,11 @@
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.848.0",
+		"@langchain/core": "^0.3.62",
+		"@langchain/openai": "^0.5.18",
+		"ai-color-correction": "^2.0.0",
 		"axios": "^1.10.0",
 		"file-type": "^16.0.0",
-		"jimp": "^1.6.0",
-		"uuid": "^11.1.0",
-		"@langchain/core": "^0.3.62",
-		"@langchain/openai": "^0.5.18"
+		"uuid": "^11.1.0"
 	}
 }
