@@ -274,10 +274,10 @@ export class ImageTool implements INodeType {
 					const urls = this.getNodeParameter('urls', 0) as string
 					const prompt = this.getNodeParameter('prompt', 0) as string
 					const azureOpenAIApi = await this.getCredentials('azureOpenAIApi') as AzureChatOpenAIConfig
-					const response = await analyzeImage(azureOpenAIApi, prompt, urls)
+					const content = await analyzeImage(azureOpenAIApi, prompt, urls)
 					returnItems.push({
 						json: {
-							response
+							content
 						}
 					})
 					break;
