@@ -6,6 +6,7 @@ export interface AzureChatOpenAIConfig {
 	azureOpenAIApiDeploymentName: string
 	azureOpenAIApiInstanceName: string
 	azureOpenAIApiVersion: string
+	temperature?: number
 }
 
 export default async function analyzeImage(config: AzureChatOpenAIConfig, prompt: string, images: string) {

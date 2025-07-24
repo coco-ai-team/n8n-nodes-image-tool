@@ -84,6 +84,22 @@ export class ImageTool implements INodeType {
 				},
 				description: 'Requires API credentials (azureOpenAIApi)',
 			},
+			{
+				displayName: 'Options',
+				name: 'options',
+				type: 'collection',
+				placeholder: 'Add Options',
+				default: {},
+				options: [
+					{
+						displayName: 'Temperature',
+						name: 'temperature',
+						type: 'number',
+						description: "Temperature for the image analysis",
+						default: 0,
+					}
+				]
+			},
 			// Color Correction
 			{
 				displayName: 'URL',
@@ -273,8 +289,9 @@ export class ImageTool implements INodeType {
 				case 'imageAnalysis':
 					const urls = this.getNodeParameter('urls', 0) as string
 					const prompt = this.getNodeParameter('prompt', 0) as string
+					const options = this.getNodeParameter('options', 0) as { temperature: number }
 					const azureOpenAIApi = await this.getCredentials('azureOpenAIApi') as AzureChatOpenAIConfig
-					const content = await analyzeImage(azureOpenAIApi, prompt, urls)
+					const content = await analyzeImage({ ...azureOpenAIApi, temperature: options.temperature }, prompt, urls)
 					returnItems.push({
 						json: {
 							content
