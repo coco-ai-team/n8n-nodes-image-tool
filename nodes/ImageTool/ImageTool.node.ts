@@ -90,6 +90,11 @@ export class ImageTool implements INodeType {
 				type: 'collection',
 				placeholder: 'Add Options',
 				default: {},
+				displayOptions: {
+					show: {
+						operation: ['imageAnalysis'],
+					},
+				},
 				options: [
 					{
 						displayName: 'Temperature',
