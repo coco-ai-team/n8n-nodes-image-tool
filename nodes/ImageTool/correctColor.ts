@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { correctColor as adjustColor } from 'ai-color-correction';
 import { fromBuffer } from 'file-type';
+import downloadImage from './downloadImage';
 
 export interface RGB {
 	red: number,
@@ -14,9 +14,11 @@ export interface ColorBalance {
 	highlights: RGB
 }
 
-export default async function correctColor(url: string, colorBalance: ColorBalance) {
-	const response = await axios.get(url, { responseType: 'arraybuffer' });
-	const buffer = Buffer.from(response.data)
+export default async function correctColor(input: string | Buffer, colorBalance: ColorBalance) {
+	if (typeof input === 'string') {
+		input = await downloadImage(input)
+	}
+	const buffer = input as Buffer
 	let mimeType = 'image/png'
 	const typ = await imageType(buffer)
 	if (typ) { mimeType = typ.mime }

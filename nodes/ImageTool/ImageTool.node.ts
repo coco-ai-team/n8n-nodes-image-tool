@@ -7,6 +7,7 @@ import type {
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import correctColor, { type RGB } from './correctColor';
 import analyzeImage, { AzureChatOpenAIConfig } from './analyzeImage';
+import downloadImage from './downloadImage';
 
 export class ImageTool implements INodeType {
 	description: INodeTypeDescription = {
@@ -48,6 +49,12 @@ export class ImageTool implements INodeType {
 						value: 'colorCorrection',
 						description: 'Adjust the color tone of the ai generated image',
 						action: 'Color correction',
+					},
+					{
+						name: 'Image Download',
+						value: 'imageDownload',
+						description: 'Download image from URL',
+						action: 'Image download',
 					},
 				],
 				default: 'imageAnalysis',
@@ -117,6 +124,34 @@ export class ImageTool implements INodeType {
 				displayOptions: {
 					show: {
 						operation: ['colorCorrection'],
+						binaryFile: [false],
+					},
+				},
+			},
+			{
+				displayName: 'Binary File',
+				name: 'binaryFile',
+				type: 'boolean',
+				default: false,
+				required: true,
+				description: "Whether the image to correct color should be taken from binary field",
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection'],
+					},
+				},
+			},
+			{
+				displayName: 'Input Binary Field',
+				name: 'inputBinaryField',
+				type: 'string',
+				default: "data",
+				required: true,
+				description: "Binary file of the image to perform operation",
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection'],
+						binaryFile: [true],
 					},
 				},
 			},
@@ -281,6 +316,21 @@ export class ImageTool implements INodeType {
 					}
 				]
 			},
+			// Image Download
+			{
+				displayName: 'URL',
+				name: 'url',
+				type: 'string',
+				default: "",
+				required: true,
+				placeholder: "e.g. https://example.com/image.jpg",
+				description: "URL of the image to download",
+				displayOptions: {
+					show: {
+						operation: ['imageDownload'],
+					},
+				},
+			},
 		],
 		inputs: [NodeConnectionType.Main],
 		outputs: [{ type: NodeConnectionType.Main }]
@@ -303,18 +353,38 @@ export class ImageTool implements INodeType {
 						}
 					})
 					break;
-				case 'colorCorrection':
-					const url = this.getNodeParameter('url', 0) as string
-					let { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
-					let { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
-					let { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
-					const image = await correctColor(url, { shadows, midtones, highlights })
+				case 'colorCorrection': {
+					const { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
+					const { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
+					const { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
+
+					let input: string | Buffer
+					const binaryFile = this.getNodeParameter('binaryFile', 0) as boolean
+					if (binaryFile) {
+						const inputBinaryField = this.getNodeParameter('inputBinaryField', 0) as string
+						input = await this.helpers.getBinaryDataBuffer(0, inputBinaryField);
+					} else {
+						input = this.getNodeParameter('url', 0) as string
+					}
+
+					const image = await correctColor(input, { shadows, midtones, highlights })
 					const data = await this.helpers.prepareBinaryData(image)
 					returnItems.push({
 						json: {},
 						binary: { data }
 					})
 					break;
+				}
+				case 'imageDownload': {
+					const url = this.getNodeParameter('url', 0) as string
+					const image = await downloadImage(url)
+					const data = await this.helpers.prepareBinaryData(image)
+					returnItems.push({
+						json: {},
+						binary: { data }
+					})
+					break;
+				}
 			}
 			return [returnItems]
 		} catch (error) {
