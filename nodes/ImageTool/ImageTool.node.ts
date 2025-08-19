@@ -414,10 +414,10 @@ export class ImageTool implements INodeType {
 				description: "Specify the quality of the compressed image",
 			},
 			{
-				displayName: 'Options',
-				name: 'options',
+				displayName: 'CompressOptions',
+				name: 'compressOptions',
 				type: 'collection',
-				placeholder: 'Add Options',
+				placeholder: 'Add Compress Options',
 				default: {},
 				displayOptions: {
 					show: {
@@ -503,7 +503,8 @@ export class ImageTool implements INodeType {
 					} else {
 						config.quality = this.getNodeParameter('customQuality', 0) as number
 					}
-					config.effort = this.getNodeParameter('compressEffort', 0) as number
+					const compressOptions = this.getNodeParameter('compressOptions', 0) as { effort: number }
+					config.effort = compressOptions.effort
 					const { compressedBuffer, quality, originalSize, compressedSize } = await compressImage(input!, config)
 					const data = await this.helpers.prepareBinaryData(compressedBuffer)
 					returnItems.push({

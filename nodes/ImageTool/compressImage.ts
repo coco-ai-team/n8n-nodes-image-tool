@@ -10,7 +10,6 @@ export type CompressConfig = {
 }
 
 export default async function compressImage(input: Buffer | string, config?: CompressConfig) {
-	console.log('compressImage', input, config)
 	if (typeof input === 'string') {
 		input = await downloadImage(input)
 	}
