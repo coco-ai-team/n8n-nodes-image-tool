@@ -7,6 +7,7 @@ import type {
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import correctColor, { type RGB } from './correctColor';
 import analyzeImage, { AzureChatOpenAIConfig } from './analyzeImage';
+import compressImage, { CompressConfig } from './compressImage';
 import downloadImage from './downloadImage';
 
 export class ImageTool implements INodeType {
@@ -45,17 +46,23 @@ export class ImageTool implements INodeType {
 						action: 'Image analysis',
 					},
 					{
+						name: 'Image Download',
+						value: 'imageDownload',
+						description: 'Download image from URL',
+						action: 'Image download',
+					},
+					{
 						name: 'Color Correction',
 						value: 'colorCorrection',
 						description: 'Adjust the color tone of the ai generated image',
 						action: 'Color correction',
 					},
 					{
-						name: 'Image Download',
-						value: 'imageDownload',
-						description: 'Download image from URL',
-						action: 'Image download',
-					},
+						name: 'Image Compress',
+						value: 'imageCompress',
+						description: 'Compress image and output in WebP format',
+						action: 'Image compress',
+					}
 				],
 				default: 'imageAnalysis',
 			},
@@ -112,7 +119,35 @@ export class ImageTool implements INodeType {
 					}
 				]
 			},
-			// Color Correction
+			// Image Download
+			{
+				displayName: 'URL',
+				name: 'downloadUrl',
+				type: 'string',
+				default: "",
+				required: true,
+				placeholder: "e.g. https://example.com/image.jpg",
+				description: "URL of the image to download",
+				displayOptions: {
+					show: {
+						operation: ['imageDownload'],
+					},
+				},
+			},
+			// Image Operation Common Option
+			{
+				displayName: 'Binary File',
+				name: 'binaryFile',
+				type: 'boolean',
+				default: false,
+				required: true,
+				description: "Whether the image to perform operation should be taken from binary field",
+				displayOptions: {
+					show: {
+						operation: ['colorCorrection', 'imageCompress'],
+					},
+				},
+			},
 			{
 				displayName: 'URL',
 				name: 'url',
@@ -123,21 +158,8 @@ export class ImageTool implements INodeType {
 				description: "URL of the image to perform operation",
 				displayOptions: {
 					show: {
-						operation: ['colorCorrection'],
+						operation: ['colorCorrection', 'imageCompress',],
 						binaryFile: [false],
-					},
-				},
-			},
-			{
-				displayName: 'Binary File',
-				name: 'binaryFile',
-				type: 'boolean',
-				default: false,
-				required: true,
-				description: "Whether the image to correct color should be taken from binary field",
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection'],
 					},
 				},
 			},
@@ -150,11 +172,12 @@ export class ImageTool implements INodeType {
 				description: "Binary file of the image to perform operation",
 				displayOptions: {
 					show: {
-						operation: ['colorCorrection'],
+						operation: ['colorCorrection', 'imageCompress'],
 						binaryFile: [true],
 					},
 				},
 			},
+			// Color Correction Config
 			{
 				displayName: 'Shadows',
 				name: 'shadows',
@@ -316,20 +339,100 @@ export class ImageTool implements INodeType {
 					}
 				]
 			},
-			// Image Download
+			// Image Compress Config
 			{
-				displayName: 'URL',
-				name: 'url',
-				type: 'string',
-				default: "",
+				displayName: 'Auto Quality',
+				name: 'autoQuality',
+				type: 'boolean',
+				default: true,
 				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to download",
+				description: "Whether to use auto quality or custom quality",
 				displayOptions: {
 					show: {
-						operation: ['imageDownload'],
+						operation: ['imageCompress'],
 					},
 				},
+			},
+			{
+				displayName: 'Minimum Quality',
+				name: 'minQuality',
+				type: 'number',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 100,
+				},
+				default: 1,
+				displayOptions: {
+					show: {
+						operation: ['imageCompress'],
+						autoQuality: [true],
+					},
+				},
+				description: "Minimum quality of the compressed image",
+			},
+			{
+				displayName: 'Maximum Quality',
+				name: 'maxQuality',
+				type: 'number',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 100,
+				},
+				default: 100,
+				displayOptions: {
+					show: {
+						operation: ['imageCompress'],
+						autoQuality: [true],
+					},
+				},
+				description: "Maximum quality of the compressed image",
+			},
+			{
+				displayName: 'Maximum Size (Bytes)',
+				name: 'maxSize',
+				type: 'number',
+				default: 1048576,
+				displayOptions: {
+					show: {
+						operation: ['imageCompress'],
+						autoQuality: [true],
+					},
+				},
+				description: "Maximum size of the compressed image, in bytes",
+			},
+			{
+				displayName: 'Custom Quality',
+				name: 'customQuality',
+				type: 'number',
+				default: 80,
+				displayOptions: {
+					show: {
+						operation: ['imageCompress'],
+						autoQuality: [false],
+					},
+				},
+				description: "Specify the quality of the compressed image",
+			},
+			{
+				displayName: 'Options',
+				name: 'options',
+				type: 'collection',
+				placeholder: 'Add Options',
+				default: {},
+				displayOptions: {
+					show: {
+						operation: ['imageCompress'],
+					},
+				},
+				options: [
+					{
+						displayName: 'Compress Effort',
+						name: 'compressEffort',
+						type: 'number',
+						description: "Effort controls the CPU intensity of compression, 0 is the fastest, 6 is the slowest",
+						default: 4,
+					}
+				]
 			},
 		],
 		inputs: [NodeConnectionType.Main],
@@ -340,8 +443,21 @@ export class ImageTool implements INodeType {
 		try {
 			const operation = this.getNodeParameter('operation', 0) as string
 			const returnItems: INodeExecutionData[] = [];
+
+			// Get input image
+			let input: string | Buffer | undefined
+			if (operation === 'imageCompress' || operation === 'colorCorrection') {
+				const binaryFile = this.getNodeParameter('binaryFile', 0) as boolean
+				if (binaryFile) {
+					const inputBinaryField = this.getNodeParameter('inputBinaryField', 0) as string
+					input = await this.helpers.getBinaryDataBuffer(0, inputBinaryField);
+				} else {
+					input = this.getNodeParameter('url', 0) as string
+				}
+			}
+
 			switch (operation) {
-				case 'imageAnalysis':
+				case 'imageAnalysis': {
 					const urls = this.getNodeParameter('urls', 0) as string
 					const prompt = this.getNodeParameter('prompt', 0) as string
 					const options = this.getNodeParameter('options', 0) as { temperature: number }
@@ -353,21 +469,10 @@ export class ImageTool implements INodeType {
 						}
 					})
 					break;
-				case 'colorCorrection': {
-					const { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
-					const { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
-					const { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
-
-					let input: string | Buffer
-					const binaryFile = this.getNodeParameter('binaryFile', 0) as boolean
-					if (binaryFile) {
-						const inputBinaryField = this.getNodeParameter('inputBinaryField', 0) as string
-						input = await this.helpers.getBinaryDataBuffer(0, inputBinaryField);
-					} else {
-						input = this.getNodeParameter('url', 0) as string
-					}
-
-					const image = await correctColor(input, { shadows, midtones, highlights })
+				}
+				case 'imageDownload': {
+					const url = this.getNodeParameter('downloadUrl', 0) as string
+					const image = await downloadImage(url)
 					const data = await this.helpers.prepareBinaryData(image)
 					returnItems.push({
 						json: {},
@@ -375,12 +480,38 @@ export class ImageTool implements INodeType {
 					})
 					break;
 				}
-				case 'imageDownload': {
-					const url = this.getNodeParameter('url', 0) as string
-					const image = await downloadImage(url)
+				case 'colorCorrection': {
+					const { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
+					const { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
+					const { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
+
+					const image = await correctColor(input!, { shadows, midtones, highlights })
 					const data = await this.helpers.prepareBinaryData(image)
 					returnItems.push({
 						json: {},
+						binary: { data }
+					})
+					break;
+				}
+				case 'imageCompress': {
+					const config: CompressConfig = {}
+					const autoQuality = this.getNodeParameter('autoQuality', 0) as boolean
+					if (autoQuality) {
+						config.minQuality = this.getNodeParameter('minQuality', 0) as number
+						config.maxQuality = this.getNodeParameter('maxQuality', 0) as number
+						config.maxSize = this.getNodeParameter('maxSize', 0) as number
+					} else {
+						config.quality = this.getNodeParameter('customQuality', 0) as number
+					}
+					config.effort = this.getNodeParameter('compressEffort', 0) as number
+					const { compressedBuffer, quality, originalSize, compressedSize } = await compressImage(input!, config)
+					const data = await this.helpers.prepareBinaryData(compressedBuffer)
+					returnItems.push({
+						json: {
+							quality,
+							originalSize,
+							compressedSize,
+						},
 						binary: { data }
 					})
 					break;
