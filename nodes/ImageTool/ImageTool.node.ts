@@ -5,10 +5,18 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import correctColor, { type RGB } from './correctColor';
-import analyzeImage, { AzureChatOpenAIConfig } from './analyzeImage';
-import compressImage, { CompressConfig } from './compressImage';
-import downloadImage from './downloadImage';
+import CorrectColorOperation from './operations/correctColor';
+import DownloadImageOperation from './operations/downloadImage';
+import CompressImageOperation from './operations/compressImage';
+import AnalyzeImageOperation from './operations/analyzeImage';
+import { OperationHandler } from './utils/types';
+
+const operationHandlers: OperationHandler[] = [
+	new AnalyzeImageOperation(),
+	new DownloadImageOperation(),
+	new CorrectColorOperation(),
+	new CompressImageOperation(),
+]
 
 export class ImageTool implements INodeType {
 	description: INodeTypeDescription = {
@@ -17,508 +25,39 @@ export class ImageTool implements INodeType {
 		icon: 'file:imageTool.svg',
 		group: ['transform'],
 		version: 1,
-		description: 'Image-related tools, including image analysis and color correction',
+		description: 'Image-related tools, including image analysis, color correction, and image compression, etc.',
 		defaults: {
 			name: 'Image Tool',
 		},
-		credentials: [
-			{
-				name: 'azureOpenAIApi',
-				required: true,
-				displayOptions: {
-					show: {
-						operation: ['imageAnalysis'],
-					},
-				},
-			}
-		],
+		credentials: operationHandlers.map(operation => operation.credential()).flat(),
 		properties: [
 			{
 				displayName: 'Operation',
-				name: 'operation',
+				name: 'operation', // ** can't modify this name, it's used to identify the operation, and control the operation properties **
 				type: 'options',
 				noDataExpression: true,
-				options: [
-					{
-						name: 'Image Analysis',
-						value: 'imageAnalysis',
-						description: 'Using Azure OpenAI for image analysis and labeling',
-						action: 'Image analysis',
-					},
-					{
-						name: 'Image Download',
-						value: 'imageDownload',
-						description: 'Download image from URL',
-						action: 'Image download',
-					},
-					{
-						name: 'Color Correction',
-						value: 'colorCorrection',
-						description: 'Adjust the color tone of the ai generated image',
-						action: 'Color correction',
-					},
-					{
-						name: 'Image Compress',
-						value: 'imageCompress',
-						description: 'Compress image and output in WebP format',
-						action: 'Image compress',
-					}
-				],
-				default: 'imageAnalysis',
+				options: operationHandlers.map(operation => ({
+					name: operation.Name(),
+					action: operation.Name(),
+					value: operation.Operation(),
+					description: operation.Description(),
+				})),
+				default: '',
 			},
-			// Image Analysis
-			{
-				displayName: 'URL(s)',
-				name: 'urls',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL(s) of the image(s) to perform operation, multiple URLs can be added separated by comma",
-				displayOptions: {
-					show: {
-						operation: ['imageAnalysis'],
-					},
-				},
-			},
-			{
-				displayName: 'Text Input',
-				name: 'prompt',
-				type: 'string',
-				default: "What's in this image?",
-				required: true,
-				placeholder: "",
-				typeOptions: {
-					rows: 10,
-				},
-				displayOptions: {
-					show: {
-						operation: ['imageAnalysis'],
-					},
-				},
-				description: 'Requires API credentials (azureOpenAIApi)',
-			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Options',
-				default: {},
-				displayOptions: {
-					show: {
-						operation: ['imageAnalysis'],
-					},
-				},
-				options: [
-					{
-						displayName: 'Temperature',
-						name: 'temperature',
-						type: 'number',
-						description: "Temperature for the image analysis",
-						default: 0,
-					}
-				]
-			},
-			// Image Download
-			{
-				displayName: 'URL',
-				name: 'downloadUrl',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to download",
-				displayOptions: {
-					show: {
-						operation: ['imageDownload'],
-					},
-				},
-			},
-			// Image Operation Common Option
-			{
-				displayName: 'Binary File',
-				name: 'binaryFile',
-				type: 'boolean',
-				default: false,
-				required: true,
-				description: "Whether the image to perform operation should be taken from binary field",
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection', 'imageCompress'],
-					},
-				},
-			},
-			{
-				displayName: 'URL',
-				name: 'url',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection', 'imageCompress',],
-						binaryFile: [false],
-					},
-				},
-			},
-			{
-				displayName: 'Input Binary Field',
-				name: 'inputBinaryField',
-				type: 'string',
-				default: "data",
-				required: true,
-				description: "Binary file of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection', 'imageCompress'],
-						binaryFile: [true],
-					},
-				},
-			},
-			// Color Correction Config
-			{
-				displayName: 'Shadows',
-				name: 'shadows',
-				type: 'fixedCollection',
-				typeOptions: {
-					multipleValues: false,
-				},
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection'],
-					},
-				},
-				default: {},
-				placeholder: 'Edit Shadows',
-				options: [
-					{
-						displayName: 'Shadows',
-						name: 'shadows',
-						values: [
-							{
-								displayName: 'Cyan-Red',
-								name: 'red',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: -5,
-							},
-							{
-								displayName: 'Magenta-Green',
-								name: 'green',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 0,
-							},
-							{
-								displayName: 'Yellow-Blue',
-								name: 'blue',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 10,
-							},
-						],
-					}
-				]
-			},
-			{
-				displayName: 'Midtones',
-				name: 'midtones',
-				type: 'fixedCollection',
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection'],
-					},
-				},
-				default: {},
-				required: true,
-				typeOptions: {
-					multipleValues: false,
-				},
-				placeholder: 'Edit Midtones',
-				options: [
-					{
-						displayName: 'Midtones',
-						name: 'midtones',
-						values: [
-							{
-								displayName: 'Cyan-Red',
-								name: 'red',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: -5,
-							},
-							{
-								displayName: 'Magenta-Green',
-								name: 'green',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 0,
-							},
-							{
-								displayName: 'Yellow-Blue',
-								name: 'blue',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 10,
-							},
-						],
-					}
-				]
-			},
-			{
-				displayName: 'Highlights',
-				name: 'highlights',
-				type: 'fixedCollection',
-				displayOptions: {
-					show: {
-						operation: ['colorCorrection'],
-					},
-				},
-				default: {},
-				required: true,
-				typeOptions: {
-					multipleValues: false,
-				},
-				placeholder: 'Edit Highlights',
-				options: [
-					{
-						displayName: 'Highlights',
-						name: 'highlights',
-						values: [
-							{
-								displayName: 'Cyan-Red',
-								name: 'red',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: -5,
-							},
-							{
-								displayName: 'Magenta-Green',
-								name: 'green',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 0,
-							},
-							{
-								displayName: 'Yellow-Blue',
-								name: 'blue',
-								type: 'number',
-								typeOptions: {
-									minValue: -20,
-									maxValue: 20,
-								},
-								default: 10,
-							},
-						],
-					}
-				]
-			},
-			// Image Compress Config
-			{
-				displayName: 'Auto Quality',
-				name: 'autoQuality',
-				type: 'boolean',
-				default: true,
-				required: true,
-				description: "Whether to use auto quality or custom quality",
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-					},
-				},
-			},
-			{
-				displayName: 'Minimum Quality',
-				name: 'minQuality',
-				type: 'number',
-				typeOptions: {
-					minValue: 1,
-					maxValue: 100,
-				},
-				default: 1,
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-						autoQuality: [true],
-					},
-				},
-				description: "Minimum quality of the compressed image",
-			},
-			{
-				displayName: 'Maximum Quality',
-				name: 'maxQuality',
-				type: 'number',
-				typeOptions: {
-					minValue: 1,
-					maxValue: 100,
-				},
-				default: 100,
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-						autoQuality: [true],
-					},
-				},
-				description: "Maximum quality of the compressed image",
-			},
-			{
-				displayName: 'Maximum Size (Bytes)',
-				name: 'maxSize',
-				type: 'number',
-				default: 1048576,
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-						autoQuality: [true],
-					},
-				},
-				description: "Maximum size of the compressed image, in bytes",
-			},
-			{
-				displayName: 'Custom Quality',
-				name: 'customQuality',
-				type: 'number',
-				default: 80,
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-						autoQuality: [false],
-					},
-				},
-				description: "Specify the quality of the compressed image",
-			},
-			{
-				displayName: 'CompressOptions',
-				name: 'compressOptions',
-				type: 'collection',
-				placeholder: 'Add Compress Options',
-				default: {},
-				displayOptions: {
-					show: {
-						operation: ['imageCompress'],
-					},
-				},
-				options: [
-					{
-						displayName: 'Compress Effort',
-						name: 'compressEffort',
-						type: 'number',
-						description: "Effort controls the CPU intensity of compression, 0 is the fastest, 6 is the slowest",
-						default: 4,
-					}
-				]
-			},
-		],
+			...operationHandlers.map(operation => operation.properties()).flat(),
+		] as any,
 		inputs: [NodeConnectionType.Main],
 		outputs: [{ type: NodeConnectionType.Main }]
-	};
+	}
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		try {
 			const operation = this.getNodeParameter('operation', 0) as string
-			const returnItems: INodeExecutionData[] = [];
-
-			// Get input image
-			let input: string | Buffer | undefined
-			if (operation === 'imageCompress' || operation === 'colorCorrection') {
-				const binaryFile = this.getNodeParameter('binaryFile', 0) as boolean
-				if (binaryFile) {
-					const inputBinaryField = this.getNodeParameter('inputBinaryField', 0) as string
-					input = await this.helpers.getBinaryDataBuffer(0, inputBinaryField);
-				} else {
-					input = this.getNodeParameter('url', 0) as string
-				}
+			const operationHandler = operationHandlers.find(handler => handler.Operation() === operation)
+			if (!operationHandler) {
+				throw new NodeOperationError(this.getNode(), new Error(`Unknown operation: ${operation}`))
 			}
-
-			switch (operation) {
-				case 'imageAnalysis': {
-					const urls = this.getNodeParameter('urls', 0) as string
-					const prompt = this.getNodeParameter('prompt', 0) as string
-					const options = this.getNodeParameter('options', 0) as { temperature: number }
-					const azureOpenAIApi = await this.getCredentials('azureOpenAIApi') as AzureChatOpenAIConfig
-					const content = await analyzeImage({ ...azureOpenAIApi, temperature: options.temperature }, prompt, urls)
-					returnItems.push({
-						json: {
-							content
-						}
-					})
-					break;
-				}
-				case 'imageDownload': {
-					const url = this.getNodeParameter('downloadUrl', 0) as string
-					const image = await downloadImage(url)
-					const data = await this.helpers.prepareBinaryData(image)
-					returnItems.push({
-						json: {},
-						binary: { data }
-					})
-					break;
-				}
-				case 'colorCorrection': {
-					const { shadows = { red: -5, green: 0, blue: 10 } } = this.getNodeParameter('shadows', 0) as { shadows: RGB }
-					const { midtones = { red: -6, green: 0, blue: 20 } } = this.getNodeParameter('midtones', 0) as { midtones: RGB }
-					const { highlights = { red: -6, green: 0, blue: 15 } } = this.getNodeParameter('highlights', 0) as { highlights: RGB }
-
-					const image = await correctColor(input!, { shadows, midtones, highlights })
-					const data = await this.helpers.prepareBinaryData(image)
-					returnItems.push({
-						json: {},
-						binary: { data }
-					})
-					break;
-				}
-				case 'imageCompress': {
-					const config: CompressConfig = {}
-					const autoQuality = this.getNodeParameter('autoQuality', 0) as boolean
-					if (autoQuality) {
-						config.minQuality = this.getNodeParameter('minQuality', 0) as number
-						config.maxQuality = this.getNodeParameter('maxQuality', 0) as number
-						config.maxSize = this.getNodeParameter('maxSize', 0) as number
-					} else {
-						config.quality = this.getNodeParameter('customQuality', 0) as number
-					}
-					const compressOptions = this.getNodeParameter('compressOptions', 0) as { effort: number }
-					config.effort = compressOptions.effort
-					const { compressedBuffer, quality, originalSize, compressedSize } = await compressImage(input!, config)
-					const data = await this.helpers.prepareBinaryData(compressedBuffer)
-					returnItems.push({
-						json: {
-							quality,
-							originalSize,
-							compressedSize,
-						},
-						binary: { data }
-					})
-					break;
-				}
-			}
-			return [returnItems]
+			return await operationHandler.execute(this)
 		} catch (error) {
 			throw new NodeOperationError(this.getNode(), error as Error);
 		}
