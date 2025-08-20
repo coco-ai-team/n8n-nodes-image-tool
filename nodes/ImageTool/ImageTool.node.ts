@@ -5,17 +5,19 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { OperationHandler } from './utils/types';
+import AnalyzeImageOperation from './operations/analyzeImage';
 import CorrectColorOperation from './operations/correctColor';
 import DownloadImageOperation from './operations/downloadImage';
 import CompressImageOperation from './operations/compressImage';
-import AnalyzeImageOperation from './operations/analyzeImage';
-import { OperationHandler } from './utils/types';
+import AddWatermarkOperation from './operations/addWatermark';
 
 const operationHandlers: OperationHandler[] = [
 	new AnalyzeImageOperation(),
-	new DownloadImageOperation(),
 	new CorrectColorOperation(),
+	new DownloadImageOperation(),
 	new CompressImageOperation(),
+	new AddWatermarkOperation(),
 ]
 
 export class ImageTool implements INodeType {

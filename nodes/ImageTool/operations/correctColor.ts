@@ -73,7 +73,7 @@ export default class CorrectColorOperation implements OperationHandler {
 				description: "Whether the image to perform operation should be taken from binary field",
 				displayOptions: {
 					show: {
-						operation: ['colorCorrection'],
+						operation: [this.Operation()],
 					},
 				},
 			},
