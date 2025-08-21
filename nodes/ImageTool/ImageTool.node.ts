@@ -11,6 +11,7 @@ import CorrectColorOperation from './operations/correctColor';
 import DownloadImageOperation from './operations/downloadImage';
 import CompressImageOperation from './operations/compressImage';
 import AddWatermarkOperation from './operations/addWatermark';
+import Image2ImageOperation from './operations/image2image';
 
 const operationHandlers: OperationHandler[] = [
 	new AnalyzeImageOperation(),
@@ -18,6 +19,7 @@ const operationHandlers: OperationHandler[] = [
 	new DownloadImageOperation(),
 	new CompressImageOperation(),
 	new AddWatermarkOperation(),
+	new Image2ImageOperation(),
 ]
 
 export class ImageTool implements INodeType {
@@ -31,7 +33,7 @@ export class ImageTool implements INodeType {
 		defaults: {
 			name: 'Image Tool',
 		},
-		credentials: operationHandlers.map(operation => operation.credential()).flat(),
+		credentials: operationHandlers.filter(operation => operation.credential().length > 0).map(operation => operation.credential()).flat(),
 		properties: [
 			{
 				displayName: 'Operation',

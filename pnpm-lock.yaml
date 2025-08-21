@@ -13,10 +13,10 @@ importers:
         version: 3.848.0
       '@langchain/core':
         specifier: ^0.3.62
-        version: 0.3.65(openai@5.10.1(zod@3.25.76))
+        version: 0.3.65(openai@5.13.1(zod@3.25.76))
       '@langchain/openai':
         specifier: ^0.5.18
-        version: 0.5.18(@langchain/core@0.3.65(openai@5.10.1(zod@3.25.76)))
+        version: 0.5.18(@langchain/core@0.3.65(openai@5.13.1(zod@3.25.76)))
       ai-color-correction:
         specifier: ^2.0.0
         version: 2.0.0
@@ -29,6 +29,9 @@ importers:
       n8n-workflow:
         specifier: '*'
         version: 1.82.0
+      openai:
+        specifier: ^5.13.1
+        version: 5.13.1(zod@3.25.76)
       sharp:
         specifier: ^0.34.3
         version: 0.34.3
@@ -1842,8 +1845,8 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
-  openai@5.10.1:
-    resolution: {integrity: sha512-fq6xVfv1/gpLbsj8fArEt3b6B9jBxdhAK+VJ+bDvbUvNd+KTLlA3bnDeYZaBsGH9LUhJ1M1yXfp9sEyBLMx6eA==}
+  openai@5.13.1:
+    resolution: {integrity: sha512-Jty97Apw40znKSlXZL2YDap1U2eN9NfXbqm/Rj1rExeOLEnhwezpKQ+v43kIqojavUgm30SR3iuvGlNEBR+AFg==}
     hasBin: true
     peerDependencies:
       ws: ^8.18.0
@@ -3242,14 +3245,14 @@ snapshots:
       '@jimp/types': 1.6.0
       tinycolor2: 1.6.0
 
-  '@langchain/core@0.3.65(openai@5.10.1(zod@3.25.76))':
+  '@langchain/core@0.3.65(openai@5.13.1(zod@3.25.76))':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.20
-      langsmith: 0.3.46(openai@5.10.1(zod@3.25.76))
+      langsmith: 0.3.46(openai@5.13.1(zod@3.25.76))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -3262,11 +3265,11 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/openai@0.5.18(@langchain/core@0.3.65(openai@5.10.1(zod@3.25.76)))':
+  '@langchain/openai@0.5.18(@langchain/core@0.3.65(openai@5.13.1(zod@3.25.76)))':
     dependencies:
-      '@langchain/core': 0.3.65(openai@5.10.1(zod@3.25.76))
+      '@langchain/core': 0.3.65(openai@5.13.1(zod@3.25.76))
       js-tiktoken: 1.0.20
-      openai: 5.10.1(zod@3.25.76)
+      openai: 5.13.1(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
@@ -4687,7 +4690,7 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  langsmith@0.3.46(openai@5.10.1(zod@3.25.76)):
+  langsmith@0.3.46(openai@5.13.1(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2
@@ -4697,7 +4700,7 @@ snapshots:
       semver: 7.7.2
       uuid: 10.0.0
     optionalDependencies:
-      openai: 5.10.1(zod@3.25.76)
+      openai: 5.13.1(zod@3.25.76)
 
   last-run@2.0.0: {}
 
@@ -4855,7 +4858,7 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@5.10.1(zod@3.25.76):
+  openai@5.13.1(zod@3.25.76):
     optionalDependencies:
       zod: 3.25.76
 
