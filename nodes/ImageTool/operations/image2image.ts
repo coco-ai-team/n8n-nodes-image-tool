@@ -6,6 +6,8 @@ import sharp from 'sharp';
 
 export type Image2ImageOptions = {
 	apiKey: string
+	model: string
+	size: string
 }
 
 export default class Image2ImageOperation implements OperationHandler {
@@ -51,10 +53,14 @@ export default class Image2ImageOperation implements OperationHandler {
 		const openAIApi = await executeFunctions.getCredentials('openAIApi') as {
 			openAIApiKey: string
 		}
+		const model = executeFunctions.getNodeParameter('model', 0) as string
+		const size = executeFunctions.getNodeParameter('size', 0) as string
 
 		// step 2: do something here
 		const image = await generateImage(input, prompt, {
-			apiKey: openAIApi.openAIApiKey
+			apiKey: openAIApi.openAIApiKey,
+			model,
+			size,
 		})
 
 		// step 3: save data to returnItems
@@ -66,9 +72,79 @@ export default class Image2ImageOperation implements OperationHandler {
 
 		return [returnItems]
 	}
-
 	properties(): INodeProperties[] {
 		return [
+			{
+				displayName: 'Model',
+				name: 'model',
+				type: 'options',
+				default: 'gpt-image-1',
+				required: true,
+				options: [
+					{ name: 'gpt-image-1', value: 'gpt-image-1' },
+					{ name: 'dall-e-2', value: 'dall-e-2' },
+				],
+				displayOptions: {
+					show: {
+						operation: [this.Operation()],
+					},
+				},
+			},
+			// Size options for dall-e-2
+			{
+				displayName: 'Size',
+				name: 'size',
+				type: 'options',
+				default: "1024x1024",
+				required: true,
+				options: [
+					{ name: '256x256', value: '256x256' },
+					{ name: '512x512', value: '512x512' },
+					{ name: '1024x1024', value: '1024x1024' },
+				],
+				displayOptions: {
+					show: {
+						operation: [this.Operation()],
+						model: ['dall-e-2'],
+					},
+				},
+			},
+			// Size options for gpt-image-1
+			{
+				displayName: 'Size',
+				name: 'size',
+				type: 'options',
+				default: "1024x1024",
+				required: true,
+				options: [
+					{ name: '1024x1024', value: '1024x1024' },
+					{ name: '1024x1536', value: '1024x1536' },
+					{ name: '1536x1024', value: '1536x1024' },
+					{ name: 'Auto', value: 'auto' },
+				],
+				displayOptions: {
+					show: {
+						operation: [this.Operation()],
+						model: ['gpt-image-1'],
+					},
+				},
+			},
+			{
+				displayName: 'Text Input',
+				name: 'prompt',
+				type: 'string',
+				default: "",
+				required: true,
+				placeholder: "",
+				typeOptions: {
+					rows: 10,
+				},
+				displayOptions: {
+					show: {
+						operation: [this.Operation()],
+					},
+				},
+			},
 			{
 				displayName: 'Binary File',
 				name: 'binaryFile',
@@ -111,22 +187,6 @@ export default class Image2ImageOperation implements OperationHandler {
 					},
 				},
 			},
-			{
-				displayName: 'Text Input',
-				name: 'prompt',
-				type: 'string',
-				default: "What's in this image?",
-				required: true,
-				placeholder: "",
-				typeOptions: {
-					rows: 10,
-				},
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
-				},
-			},
 		]
 	}
 }
@@ -161,8 +221,8 @@ async function generateImage(input: Buffer | string, prompt: string, options: Im
 	const response = await client.images.edit({
 		image: new File([buffer], filename, { type: contentType }),
 		prompt,
-		model: "gpt-image-1",
-		size: "1024x1536",
+		model: options.model,
+		size: options.size as any,
 		n: 1,
 	});
 
