@@ -165,7 +165,7 @@ export default class Image2ImageOperation implements OperationHandler {
 				default: "",
 				required: true,
 				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to perform operation",
+				description: "For `gpt-image-1`, it should be a `png`, `webp`, or `jpg` file less than 50MB. For `dall-e-2`, it should be a square `png` file less than 4MB.",
 				displayOptions: {
 					show: {
 						operation: [this.Operation()],
@@ -179,7 +179,7 @@ export default class Image2ImageOperation implements OperationHandler {
 				type: 'string',
 				default: "data",
 				required: true,
-				description: "Binary file of the image to perform operation",
+				description: "For `gpt-image-1`, it should be a `png`, `webp`, or `jpg` file less than 50MB. For `dall-e-2`, it should be a square `png` file less than 4MB.",
 				displayOptions: {
 					show: {
 						operation: [this.Operation()],
