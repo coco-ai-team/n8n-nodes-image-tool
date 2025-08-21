@@ -6,7 +6,6 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { OperationHandler } from './utils/types';
-import AnalyzeImageOperation from './operations/analyzeImage';
 import CorrectColorOperation from './operations/correctColor';
 import DownloadImageOperation from './operations/downloadImage';
 import CompressImageOperation from './operations/compressImage';
@@ -14,7 +13,6 @@ import AddWatermarkOperation from './operations/addWatermark';
 import Image2ImageOperation from './operations/image2image';
 
 const operationHandlers: OperationHandler[] = [
-	new AnalyzeImageOperation(),
 	new CorrectColorOperation(),
 	new DownloadImageOperation(),
 	new CompressImageOperation(),
