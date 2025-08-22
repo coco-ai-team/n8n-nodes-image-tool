@@ -210,7 +210,7 @@ async function generateImage(input: Buffer | string, prompt: string, options: Im
 			filename = 'input.webp'
 			break
 		case 'jpg':
-			contentType = 'image/jpeg'
+			contentType = 'image/jpg'
 			filename = 'input.jpg'
 			break
 		default:
