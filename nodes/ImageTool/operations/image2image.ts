@@ -8,6 +8,7 @@ export type Image2ImageOptions = {
 	apiKey: string
 	model: string
 	size: string
+	convertUnsupportedFormatToPng: boolean
 }
 
 export default class Image2ImageOperation implements OperationHandler {
@@ -55,12 +56,14 @@ export default class Image2ImageOperation implements OperationHandler {
 		}
 		const model = executeFunctions.getNodeParameter('model', 0) as string
 		const size = executeFunctions.getNodeParameter('size', 0) as string
+		const convertUnsupportedFormatToPng = executeFunctions.getNodeParameter('convertUnsupportedFormatToPng', 0) as boolean
 
 		// step 2: do something here
 		const image = await generateImage(input, prompt, {
 			apiKey: openAIApi.openAIApiKey,
 			model,
 			size,
+			convertUnsupportedFormatToPng,
 		})
 
 		// step 3: save data to returnItems
@@ -187,6 +190,19 @@ export default class Image2ImageOperation implements OperationHandler {
 					},
 				},
 			},
+			{
+				displayName: 'Convert Unsupported Format to PNG',
+				name: 'convertUnsupportedFormatToPng',
+				type: 'boolean',
+				default: false,
+				required: true,
+				description: "Whether the image is not a `png`, `webp`, or `jpg` file, it will be converted to `png` file before generating new image",
+				displayOptions: {
+					show: {
+						operation: [this.Operation()],
+					},
+				},
+			},
 		]
 	}
 }
@@ -195,7 +211,7 @@ async function generateImage(input: Buffer | string, prompt: string, options: Im
 	if (typeof input === 'string') {
 		input = await downloadImage(input)
 	}
-	const buffer = input
+	let buffer = input
 
 	const metadata = await sharp(buffer).metadata()
 	let contentType = ''
@@ -214,7 +230,13 @@ async function generateImage(input: Buffer | string, prompt: string, options: Im
 			filename = 'input.jpg'
 			break
 		default:
-			throw new Error(`unsupported image format: ${metadata.format}`)
+			if (options.convertUnsupportedFormatToPng) {
+				contentType = 'image/png'
+				filename = 'input.png'
+				buffer = await sharp(buffer).png().toBuffer()
+			} else {
+				throw new Error(`unsupported image format: ${metadata.format}`)
+			}
 	}
 
 	const client = new OpenAI({ apiKey: options.apiKey });

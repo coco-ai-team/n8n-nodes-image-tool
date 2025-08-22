@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-image-tool",
-	"version": "1.0.1-beta.1",
+	"version": "1.0.1-beta.2",
 	"description": "Use image-related tools, including image analysis and color correction, etc.",
 	"keywords": [
 		"n8n-community-node-package"
