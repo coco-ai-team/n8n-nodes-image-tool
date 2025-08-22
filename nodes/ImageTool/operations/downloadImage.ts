@@ -1,6 +1,6 @@
 import type { IExecuteFunctions, INodeCredentialDescription, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import type { OperationHandler } from '../utils/types';
-import { downloadImage } from '../utils';
+import { downloadImage, makeImageReturnItem, makeOutputFieldProperty } from '../utils';
 
 export default class DownloadImageOperation implements OperationHandler {
 	Name(): string {
@@ -16,17 +16,11 @@ export default class DownloadImageOperation implements OperationHandler {
 	}
 
 	async execute(executeFunctions: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const returnItems: INodeExecutionData[] = []
-
 		const url = executeFunctions.getNodeParameter('url', 0) as string
-		const image = await downloadImage(url)
+		const data = await downloadImage(url)
 
-		const data = await executeFunctions.helpers.prepareBinaryData(image)
-		returnItems.push({
-			json: {},
-			binary: { data }
-		})
-		return [returnItems]
+		const returnItem = await makeImageReturnItem(executeFunctions, data)
+		return [[returnItem]]
 	}
 
 	credential(): INodeCredentialDescription[] {
@@ -35,6 +29,7 @@ export default class DownloadImageOperation implements OperationHandler {
 
 	properties(): INodeProperties[] {
 		return [
+			...makeOutputFieldProperty(this.Operation()),
 			{
 				displayName: 'URL',
 				name: 'url',

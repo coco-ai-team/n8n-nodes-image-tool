@@ -1,6 +1,6 @@
 import type { IExecuteFunctions, INodeCredentialDescription, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import type { OperationHandler } from '../utils/types';
-import { downloadImage } from '../utils';
+import { makeImageInputProperties, makeImageReturnItem, makeOptionProperties, makeOutputFieldProperty, parseImageInput, parseOptions } from '../utils';
 import sharp from 'sharp';
 
 type AddWatermarkOptions = {
@@ -25,31 +25,17 @@ export default class AddWatermarkOperation implements OperationHandler {
 	}
 
 	async execute(executeFunctions: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const returnItems: INodeExecutionData[] = []
-
 		// step 1: parse parameters here
-		const watermarkUrl = executeFunctions.getNodeParameter('watermarkUrl', 0) as string
-		let input: Buffer | string
-		const binaryFile = executeFunctions.getNodeParameter('binaryFile', 0) as boolean
-		if (binaryFile) {
-			const inputBinaryField = executeFunctions.getNodeParameter('inputBinaryField', 0) as string
-			input = await executeFunctions.helpers.getBinaryDataBuffer(0, inputBinaryField);
-		} else {
-			input = executeFunctions.getNodeParameter('url', 0) as string
-		}
-		const options = executeFunctions.getNodeParameter('options', 0) as AddWatermarkOptions
+		const imageBuffer = await parseImageInput(executeFunctions)
+		const watermarkBuffer = await parseImageInput(executeFunctions, 'watermark')
+		const options = parseOptions(executeFunctions) as AddWatermarkOptions
 
 		// step 2: do something here
-		const image = await addWatermark(input, watermarkUrl, options)
+		const data = await addWatermark(imageBuffer, watermarkBuffer, options)
 
 		// step 3: save data to returnItems
-		const data = await executeFunctions.helpers.prepareBinaryData(image)
-		returnItems.push({
-			json: {},
-			binary: { data }
-		})
-
-		return [returnItems]
+		const returnItem = await makeImageReturnItem(executeFunctions, data)
+		return [[returnItem]]
 	}
 
 	credential(): INodeCredentialDescription[] {
@@ -58,125 +44,51 @@ export default class AddWatermarkOperation implements OperationHandler {
 
 	properties(): INodeProperties[] {
 		return [
-			{
-				displayName: 'Watermark URL',
-				name: 'watermarkUrl',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the watermark image",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
+			...makeOutputFieldProperty(this.Operation()),
+			...makeImageInputProperties(this.Operation()),
+			...makeImageInputProperties(this.Operation(), { field: 'watermark' }),
+			...makeOptionProperties(this.Operation(), [
+				{
+					displayName: 'Bottom Margin',
+					name: 'bottom',
+					type: 'number',
+					description: "The pixel offset from the bottom edge",
+					default: 0,
 				},
-			},
-			{
-				displayName: 'Binary File',
-				name: 'binaryFile',
-				type: 'boolean',
-				default: false,
-				required: true,
-				description: "Whether the image to perform operation should be taken from binary field",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
+				{
+					displayName: 'Left Margin',
+					name: 'left',
+					type: 'number',
+					description: "The pixel offset from the left edge, left is prioritized over right",
+					default: 0,
 				},
-			},
-			{
-				displayName: 'URL',
-				name: 'url',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [false],
-					},
+				{
+					displayName: 'Right Margin',
+					name: 'right',
+					type: 'number',
+					description: "The pixel offset from the right edge",
+					default: 0,
 				},
-			},
-			{
-				displayName: 'Input Binary Field',
-				name: 'inputBinaryField',
-				type: 'string',
-				default: "data",
-				required: true,
-				description: "Binary file of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [true],
-					},
+				{
+					displayName: 'Top Margin',
+					name: 'top',
+					type: 'number',
+					description: "The pixel offset from the top edge, top is prioritized over bottom",
+					default: 0,
 				},
-			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Options',
-				default: {},
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
+				{
+					displayName: 'Watermark Scale',
+					name: 'watermarkScale',
+					type: 'number',
+					description: "Scale of the watermark",
+					default: 1,
 				},
-				options: [
-					{
-						displayName: 'Bottom Margin',
-						name: 'bottom',
-						type: 'number',
-						description: "The pixel offset from the bottom edge",
-						default: 0,
-					},
-					{
-						displayName: 'Left Margin',
-						name: 'left',
-						type: 'number',
-						description: "The pixel offset from the left edge, left is prioritized over right",
-						default: 0,
-					},
-					{
-						displayName: 'Right Margin',
-						name: 'right',
-						type: 'number',
-						description: "The pixel offset from the right edge",
-						default: 0,
-					},
-					{
-						displayName: 'Top Margin',
-						name: 'top',
-						type: 'number',
-						description: "The pixel offset from the top edge, top is prioritized over bottom",
-						default: 0,
-					},
-					{
-						displayName: 'Watermark Scale',
-						name: 'watermarkScale',
-						type: 'number',
-						description: "Scale of the watermark",
-						default: 1,
-					},
-				]
-			},
+			]),
 		]
 	}
 }
 
-async function addWatermark(input: string | Buffer, watermarkUrl: string, config: AddWatermarkOptions): Promise<Buffer> {
-	let watermarkBuffer: Buffer
-	let imageBuffer: Buffer
-	if (typeof input === 'string') {
-		[watermarkBuffer, imageBuffer] = await Promise.all([downloadImage(watermarkUrl), downloadImage(input)])
-	} else {
-		watermarkBuffer = await downloadImage(watermarkUrl)
-		imageBuffer = input
-	}
-
+async function addWatermark(imageBuffer: Buffer, watermarkBuffer: Buffer, config: AddWatermarkOptions): Promise<Buffer> {
 	let watermark = sharp(watermarkBuffer)
 	let watermarkMeta = await watermark.metadata()
 

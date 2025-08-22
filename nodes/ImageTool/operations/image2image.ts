@@ -1,15 +1,8 @@
 import type { IExecuteFunctions, INodeCredentialDescription, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import type { OperationHandler } from '../utils/types';
-import { downloadImage } from '../utils';
+import { makeImageInputProperties, makeImageReturnItem, makeOutputFieldProperty, parseImageInput } from '../utils';
 import OpenAI from 'openai';
 import sharp from 'sharp';
-
-export type Image2ImageOptions = {
-	apiKey: string
-	model: string
-	size: string
-	convertUnsupportedFormatToPng: boolean
-}
 
 export default class Image2ImageOperation implements OperationHandler {
 	Name(): string {
@@ -39,27 +32,20 @@ export default class Image2ImageOperation implements OperationHandler {
 	}
 
 	async execute(executeFunctions: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const returnItems: INodeExecutionData[] = []
-
 		// step 1: parse parameters here
-		let input: string | Buffer
-		const binaryFile = executeFunctions.getNodeParameter('binaryFile', 0) as boolean
-		if (binaryFile) {
-			const inputBinaryField = executeFunctions.getNodeParameter('inputBinaryField', 0) as string
-			input = await executeFunctions.helpers.getBinaryDataBuffer(0, inputBinaryField);
-		} else {
-			input = executeFunctions.getNodeParameter('url', 0) as string
-		}
-		const prompt = executeFunctions.getNodeParameter('prompt', 0) as string
 		const openAIApi = await executeFunctions.getCredentials('openAIApi') as {
 			openAIApiKey: string
 		}
 		const model = executeFunctions.getNodeParameter('model', 0) as string
 		const size = executeFunctions.getNodeParameter('size', 0) as string
+		const prompt = executeFunctions.getNodeParameter('prompt', 0) as string
+		const image = await parseImageInput(executeFunctions)
 		const convertUnsupportedFormatToPng = executeFunctions.getNodeParameter('convertUnsupportedFormatToPng', 0) as boolean
 
 		// step 2: do something here
-		const image = await generateImage(input, prompt, {
+		const data = await generateImage({
+			image,
+			prompt,
 			apiKey: openAIApi.openAIApiKey,
 			model,
 			size,
@@ -67,16 +53,12 @@ export default class Image2ImageOperation implements OperationHandler {
 		})
 
 		// step 3: save data to returnItems
-		const data = await executeFunctions.helpers.prepareBinaryData(image)
-		returnItems.push({
-			json: {},
-			binary: { data }
-		})
-
-		return [returnItems]
+		const returnItem = await makeImageReturnItem(executeFunctions, data)
+		return [[returnItem]]
 	}
 	properties(): INodeProperties[] {
 		return [
+			...makeOutputFieldProperty(this.Operation()),
 			{
 				displayName: 'Model',
 				name: 'model',
@@ -148,48 +130,7 @@ export default class Image2ImageOperation implements OperationHandler {
 					},
 				},
 			},
-			{
-				displayName: 'Binary File',
-				name: 'binaryFile',
-				type: 'boolean',
-				default: false,
-				required: true,
-				description: "Whether the image to perform operation should be taken from binary field",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
-				},
-			},
-			{
-				displayName: 'URL',
-				name: 'url',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "For `gpt-image-1`, it should be a `png`, `webp`, or `jpg` file less than 50MB. For `dall-e-2`, it should be a square `png` file less than 4MB.",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [false],
-					},
-				},
-			},
-			{
-				displayName: 'Input Binary Field',
-				name: 'inputBinaryField',
-				type: 'string',
-				default: "data",
-				required: true,
-				description: "For `gpt-image-1`, it should be a `png`, `webp`, or `jpg` file less than 50MB. For `dall-e-2`, it should be a square `png` file less than 4MB.",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [true],
-					},
-				},
-			},
+			...makeImageInputProperties(this.Operation()),
 			{
 				displayName: 'Convert Unsupported Format to PNG',
 				name: 'convertUnsupportedFormatToPng',
@@ -207,13 +148,22 @@ export default class Image2ImageOperation implements OperationHandler {
 	}
 }
 
-async function generateImage(input: Buffer | string, prompt: string, options: Image2ImageOptions) {
-	if (typeof input === 'string') {
-		input = await downloadImage(input)
-	}
-	let buffer = input
-
-	const metadata = await sharp(buffer).metadata()
+async function generateImage({
+	image,
+	prompt,
+	apiKey,
+	model,
+	size,
+	convertUnsupportedFormatToPng,
+}: {
+	image: Buffer
+	prompt: string
+	apiKey: string
+	model: string
+	size: string
+	convertUnsupportedFormatToPng: boolean
+}) {
+	const metadata = await sharp(image).metadata()
 	let contentType = ''
 	let filename = ''
 	switch (metadata.format) {
@@ -230,21 +180,21 @@ async function generateImage(input: Buffer | string, prompt: string, options: Im
 			filename = 'input.jpg'
 			break
 		default:
-			if (options.convertUnsupportedFormatToPng) {
+			if (convertUnsupportedFormatToPng) {
 				contentType = 'image/png'
 				filename = 'input.png'
-				buffer = await sharp(buffer).png().toBuffer()
+				image = await sharp(image).png().toBuffer()
 			} else {
 				throw new Error(`unsupported image format: ${metadata.format}`)
 			}
 	}
 
-	const client = new OpenAI({ apiKey: options.apiKey });
+	const client = new OpenAI({ apiKey });
 	const response = await client.images.edit({
-		image: new File([buffer], filename, { type: contentType }),
+		image: new File([image], filename, { type: contentType }),
 		prompt,
-		model: options.model,
-		size: options.size as any,
+		model,
+		size: size as any,
 		n: 1,
 	});
 

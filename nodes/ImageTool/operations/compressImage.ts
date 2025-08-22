@@ -1,6 +1,6 @@
 import type { IExecuteFunctions, INodeCredentialDescription, INodeExecutionData, INodeProperties } from 'n8n-workflow';
 import type { OperationHandler } from '../utils/types';
-import { downloadImage } from '../utils';
+import { makeImageInputProperties, makeImageReturnItem, makeOptionProperties, makeOutputFieldProperty, parseImageInput, parseOptions } from '../utils';
 import sharp from 'sharp';
 
 export type CompressConfig = {
@@ -25,45 +25,37 @@ export default class CompressImageOperation implements OperationHandler {
 	}
 
 	async execute(executeFunctions: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const returnItems: INodeExecutionData[] = []
-
 		// step 1: parse parameters here
-		let input: string | Buffer
-		const binaryFile = executeFunctions.getNodeParameter('binaryFile', 0) as boolean
-		if (binaryFile) {
-			const inputBinaryField = executeFunctions.getNodeParameter('inputBinaryField', 0) as string
-			input = await executeFunctions.helpers.getBinaryDataBuffer(0, inputBinaryField);
-		} else {
-			input = executeFunctions.getNodeParameter('url', 0) as string
-		}
+		const imageBuffer = await parseImageInput(executeFunctions)
 
-		const config: CompressConfig = {}
+		let minQuality, maxQuality, maxSize, quality, effort
 		const autoQuality = executeFunctions.getNodeParameter('autoQuality', 0) as boolean
 		if (autoQuality) {
-			config.minQuality = executeFunctions.getNodeParameter('minQuality', 0) as number
-			config.maxQuality = executeFunctions.getNodeParameter('maxQuality', 0) as number
-			config.maxSize = executeFunctions.getNodeParameter('maxSize', 0) as number
+			minQuality = executeFunctions.getNodeParameter('minQuality', 0) as number
+			maxQuality = executeFunctions.getNodeParameter('maxQuality', 0) as number
+			maxSize = executeFunctions.getNodeParameter('maxSize', 0) as number
 		} else {
-			config.quality = executeFunctions.getNodeParameter('customQuality', 0) as number
+			quality = executeFunctions.getNodeParameter('customQuality', 0) as number
 		}
-		const options = executeFunctions.getNodeParameter('options', 0) as { effort: number }
-		config.effort = options.effort
+
+		const options = parseOptions(executeFunctions) as { effort: number }
+		effort = options.effort
 
 		// step 2: do something here
-		const { compressedBuffer, quality, originalSize, compressedSize } = await compressImage(input, config)
-
-		// step 3: save data to returnItems
-		const data = await executeFunctions.helpers.prepareBinaryData(compressedBuffer)
-		returnItems.push({
-			json: {
-				quality,
-				originalSize,
-				compressedSize,
-			},
-			binary: { data }
+		const { compressedBuffer, quality: compressedQuality, originalSize } = await compressImage(imageBuffer, {
+			minQuality,
+			maxQuality,
+			maxSize,
+			quality,
+			effort,
 		})
 
-		return [returnItems]
+		// step 3: save data to returnItems
+		const returnItem = await makeImageReturnItem(executeFunctions, compressedBuffer, {
+			quality: compressedQuality,
+			originalSize,
+		})
+		return [[returnItem]]
 	}
 
 	credential(): INodeCredentialDescription[] {
@@ -72,48 +64,8 @@ export default class CompressImageOperation implements OperationHandler {
 
 	properties(): INodeProperties[] {
 		return [
-			{
-				displayName: 'Binary File',
-				name: 'binaryFile',
-				type: 'boolean',
-				default: false,
-				required: true,
-				description: "Whether the image to perform operation should be taken from binary field",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
-				},
-			},
-			{
-				displayName: 'URL',
-				name: 'url',
-				type: 'string',
-				default: "",
-				required: true,
-				placeholder: "e.g. https://example.com/image.jpg",
-				description: "URL of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [false],
-					},
-				},
-			},
-			{
-				displayName: 'Input Binary Field',
-				name: 'inputBinaryField',
-				type: 'string',
-				default: "data",
-				required: true,
-				description: "Binary file of the image to perform operation",
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-						binaryFile: [true],
-					},
-				},
-			},
+			...makeOutputFieldProperty(this.Operation()),
+			...makeImageInputProperties(this.Operation()),
 			{
 				displayName: 'Auto Quality',
 				name: 'autoQuality',
@@ -187,44 +139,27 @@ export default class CompressImageOperation implements OperationHandler {
 				},
 				description: "Specify the quality of the compressed image",
 			},
-			{
-				displayName: 'Options',
-				name: 'options',
-				type: 'collection',
-				placeholder: 'Add Options',
-				default: {},
-				displayOptions: {
-					show: {
-						operation: [this.Operation()],
-					},
-				},
-				options: [
-					{
-						displayName: 'Compress Effort',
-						name: 'compressEffort',
-						type: 'number',
-						description: "Effort controls the CPU intensity of compression, 0 is the fastest, 6 is the slowest",
-						default: 4,
-					}
-				]
-			},
+			...makeOptionProperties(this.Operation(), [
+				{
+					displayName: 'Compress Effort',
+					name: 'compressEffort',
+					type: 'number',
+					description: "Effort controls the CPU intensity of compression, 0 is the fastest, 6 is the slowest",
+					default: 4,
+				}
+			]),
 		]
 	}
 }
 
-async function compressImage(input: Buffer | string, config?: CompressConfig) {
-	if (typeof input === 'string') {
-		input = await downloadImage(input)
-	}
-	const buffer = input as Buffer
-
+async function compressImage(buffer: Buffer, config: CompressConfig) {
 	let compressedBuffer = buffer;
 	let quality = 0;
 
-	if (config?.maxSize) {
-		const maxSize = config?.maxSize!
-		let left = config?.minQuality!
-		let right = config?.maxQuality!
+	if (config.maxSize) {
+		const maxSize = config.maxSize!
+		let left = config.minQuality!
+		let right = config.maxQuality!
 
 		while (left <= right) {
 			const mid = Math.floor((left + right) / 2);
@@ -239,13 +174,12 @@ async function compressImage(input: Buffer | string, config?: CompressConfig) {
 			}
 		}
 	} else {
-		quality = config?.quality!
-		compressedBuffer = await sharp(buffer).webp({ quality, effort: config?.effort }).toBuffer()
+		quality = config.quality!
+		compressedBuffer = await sharp(buffer).webp({ quality, effort: config.effort }).toBuffer()
 	}
 
 	return {
 		originalSize: buffer.length,
-		compressedSize: compressedBuffer.length,
 		compressedBuffer,
 		quality,
 	}
